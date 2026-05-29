@@ -3,7 +3,7 @@ $(function () {
     var sounds = {};
     $(".key").each(function () {
         var letter = $(this).data("letter");
-        var audio = new Audio("sound/" + letter + ".mp4");
+        var audio = new Audio("sound/" + letter + ".webm");
         audio.preload = "auto";
         sounds[letter] = audio;
     });

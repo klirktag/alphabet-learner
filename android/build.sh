@@ -34,9 +34,11 @@ echo ">> Cleaning $BUILD"
 rm -rf "$BUILD"
 mkdir -p "$BUILD"/{assets/sound,classes,dex,gen}
 
-echo ">> Bundling web assets (html/css/js + sound/*.mp4)"
+echo ">> Bundling web assets (html/css/js + vendored jQuery + sound/*.webm)"
 cp "$ROOT/index.html" "$ROOT/style.css" "$ROOT/script.js" "$BUILD/assets/"
-cp "$ROOT/sound/"*.mp4 "$BUILD/assets/sound/"
+mkdir -p "$BUILD/assets/vendor"
+cp "$ROOT/vendor/"*.js "$BUILD/assets/vendor/"
+cp "$ROOT/sound/"*.webm "$BUILD/assets/sound/"
 
 echo ">> aapt2 compile (resources)"
 "$BT/aapt2" compile --dir "$ANDROID_DIR/res" -o "$BUILD/res.zip"
