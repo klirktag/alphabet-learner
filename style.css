@@ -97,3 +97,54 @@ body {
 .key[data-letter="å"] { background: #ff6b6b; }
 .key[data-letter="ä"] { background: #ffa94d; }
 .key[data-letter="ö"] { background: #ffd43b; color: #4a3a00; text-shadow: 0 0.4vmin 0 rgba(255,255,255,0.4); }
+
+/* Switch-audio chip: small floating control in the bottom-right corner.
+   Translucent so it never visually competes with the colorful keyboard. */
+#source-chip {
+    position: fixed;
+    right: 1.4vmin;
+    bottom: 1.4vmin;
+    display: flex;
+    align-items: center;
+    gap: 1vmin;
+    z-index: 50;
+    font-family: inherit;
+    pointer-events: none;  /* children re-enable; chip background is decorative */
+}
+
+#source-chip .source-name {
+    pointer-events: none;
+    font-size: 2.4vmin;
+    font-weight: 700;
+    color: #2a2a2a;
+    background: rgba(255, 255, 255, 0.7);
+    padding: 0.6vmin 1.4vmin;
+    border-radius: 1.6vmin;
+    box-shadow: 0 0.2vmin 0.6vmin rgba(0, 0, 0, 0.12);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+}
+
+#source-chip .source-switch {
+    pointer-events: auto;
+    font-family: inherit;
+    font-size: 2.4vmin;
+    font-weight: 700;
+    color: #fff;
+    background: rgba(40, 40, 40, 0.78);
+    border: none;
+    border-radius: 1.6vmin;
+    padding: 0.8vmin 1.8vmin;
+    cursor: pointer;
+    box-shadow: 0 0.2vmin 0.6vmin rgba(0, 0, 0, 0.18);
+    transition: transform 80ms ease-out, background 80ms ease-out;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+#source-chip .source-switch:active {
+    transform: translateY(0.3vmin) scale(0.97);
+    background: rgba(20, 20, 20, 0.9);
+}
+
+#source-chip .source-switch:focus { outline: none; }

@@ -34,15 +34,16 @@ echo ">> Cleaning $BUILD"
 rm -rf "$BUILD"
 mkdir -p "$BUILD"/{assets/sound,classes,dex,gen}
 
-echo ">> Bundling web assets (html/css/js + vendored jQuery + per-language sounds)"
+echo ">> Bundling web assets (html/css/js + vendored jQuery + per-source sounds)"
 cp "$ROOT/index.html" "$ROOT/style.css" "$ROOT/script.js" "$BUILD/assets/"
 mkdir -p "$BUILD/assets/vendor"
 cp "$ROOT/vendor/"*.js "$BUILD/assets/vendor/"
-# Ship every language's webm files (skip the wav originals to keep APK small).
-for lang_dir in "$ROOT/sound/"*/; do
-    lang=$(basename "$lang_dir")
-    mkdir -p "$BUILD/assets/sound/$lang"
-    cp "$lang_dir"*.webm "$BUILD/assets/sound/$lang/"
+# Ship every sound/<lang>-<source>/ folder. Skip the wav originals and the
+# per-folder README to keep the APK small.
+for src_dir in "$ROOT/sound/"*/; do
+    src=$(basename "$src_dir")
+    mkdir -p "$BUILD/assets/sound/$src"
+    cp "$src_dir"*.webm "$BUILD/assets/sound/$src/"
 done
 
 echo ">> aapt2 compile (resources)"
