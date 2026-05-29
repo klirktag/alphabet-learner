@@ -237,3 +237,90 @@ body {
     background: #3a8bd1;
 }
 .settings-row-control .source-switch:focus { outline: none; }
+
+/* iOS-style on/off toggle (used for "Visa ord"). */
+.words-toggle {
+    position: relative;
+    width: 11vmin;
+    height: 6vmin;
+    min-width: 64px;
+    min-height: 36px;
+    background: #ccc;
+    border: none;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 150ms ease-out;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+.words-toggle:focus { outline: none; }
+.words-toggle.on { background: #38d9a9; }
+
+.words-toggle-thumb {
+    position: absolute;
+    top: 0.4vmin;
+    left: 0.4vmin;
+    width: calc(6vmin - 0.8vmin);
+    height: calc(6vmin - 0.8vmin);
+    min-width: calc(36px - 0.8vmin);
+    min-height: calc(36px - 0.8vmin);
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 0.2vmin 0.4vmin rgba(0, 0, 0, 0.25);
+    transition: left 150ms ease-out;
+}
+.words-toggle.on .words-toggle-thumb {
+    left: calc(11vmin - 6vmin + 0.4vmin);
+}
+
+/* Word display overlay: floating image + label that appears when a letter
+   tied to a word is tapped. Backdrop has pointer-events: none so keys
+   underneath stay tappable — pressing a new letter swaps the card. */
+#word-display {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+#word-display[hidden] { display: none; }
+
+.word-card {
+    pointer-events: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2vmin;
+    background: rgba(255, 255, 255, 0.94);
+    border-radius: 4vmin;
+    padding: 4vmin 6vmin;
+    box-shadow: 0 1vmin 4vmin rgba(0, 0, 0, 0.3);
+    max-width: 70vmin;
+    cursor: pointer;
+    animation: word-pop 220ms ease-out;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+@keyframes word-pop {
+    from { transform: scale(0.6); opacity: 0; }
+    to   { transform: scale(1);   opacity: 1; }
+}
+
+.word-image {
+    width: 50vmin;
+    max-width: 100%;
+    height: auto;
+    pointer-events: none;
+}
+
+.word-label {
+    font-family: inherit;
+    font-size: 8vmin;
+    font-weight: 700;
+    color: #2a2a2a;
+    pointer-events: none;
+}

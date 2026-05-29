@@ -34,16 +34,24 @@ echo ">> Cleaning $BUILD"
 rm -rf "$BUILD"
 mkdir -p "$BUILD"/{assets/sound,classes,dex,gen}
 
-echo ">> Bundling web assets (html/css/js + vendored jQuery + per-source sounds)"
+echo ">> Bundling web assets (html/css/js + vendored jQuery + per-source sounds + words)"
 cp "$ROOT/index.html" "$ROOT/style.css" "$ROOT/script.js" "$BUILD/assets/"
 mkdir -p "$BUILD/assets/vendor"
 cp "$ROOT/vendor/"*.js "$BUILD/assets/vendor/"
-# Ship every sound/<lang>-<source>/ folder. Skip the wav originals and the
-# per-folder README to keep the APK small.
+# Ship every sound/<lang>-<source>/ folder. Skip wav originals + READMEs.
 for src_dir in "$ROOT/sound/"*/; do
     src=$(basename "$src_dir")
     mkdir -p "$BUILD/assets/sound/$src"
     cp "$src_dir"*.webm "$BUILD/assets/sound/$src/"
+    # Per-word folders (Visa ord feature): copy audio.webm + image.* per word,
+    # skip the originals/ subdir.
+    if [ -d "$src_dir/words" ]; then
+        for word_dir in "$src_dir/words/"*/; do
+            word=$(basename "$word_dir")
+            mkdir -p "$BUILD/assets/sound/$src/words/$word"
+            find "$word_dir" -maxdepth 1 -type f -exec cp {} "$BUILD/assets/sound/$src/words/$word/" \;
+        done
+    fi
 done
 
 echo ">> aapt2 compile (resources)"
