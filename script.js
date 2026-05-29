@@ -1,9 +1,9 @@
 // ----- Configuration ------------------------------------------------------
 // LANG controls which alphabet is displayed (and which family of audio
-// folders is offered in the picker). Each language has one alphabet config
-// in ALPHABETS, and one or more "sound/<LANG>-<source>/" folders, listed in
-// SOURCES below. A real settings UI will replace LANG later — the in-app
-// "Switch audio" chip already swaps the source at runtime.
+// folders is offered in the Settings popup). Each language has one alphabet
+// config in ALPHABETS and one or more "sound/<LANG>-<source>/" folders
+// listed in SOURCES. A real language picker will replace this constant later
+// — the in-app Settings popup already swaps audio sources at runtime.
 var LANG = "sv";
 
 var ALPHABETS = {
@@ -20,7 +20,7 @@ var ALPHABETS = {
 };
 
 // Audio source folders for each language. Each entry's `id` is the suffix
-// of "sound/<LANG>-<id>/"; `label` is what the on-screen chip shows. Add a
+// of "sound/<LANG>-<id>/"; `label` is what the Settings popup shows. Add a
 // new recording set by dropping a folder in sound/ and appending a line here.
 var SOURCES = {
     sv: [
@@ -48,7 +48,7 @@ $(function () {
     // Recall the last source the user picked (default = first in SOURCES).
     var savedId;
     try { savedId = localStorage.getItem(STORAGE_KEY); } catch (_) { savedId = null; }
-    var currentIdx = Math.max(0, sources.findIndex(function (s) { return s.id === savedId; }));
+    var currentIdx = sources.findIndex(function (s) { return s.id === savedId; });
     if (currentIdx === -1) currentIdx = 0;
 
     // ---- Keyboard ---------------------------------------------------------
@@ -68,7 +68,7 @@ $(function () {
 
     // ---- Audio source management ------------------------------------------
     // One Audio per letter for the *currently active* source. Rebuilt when
-    // the user taps Switch audio.
+    // the user switches sources in the Settings popup.
     var sounds = {};
 
     function loadSounds() {
@@ -101,24 +101,68 @@ $(function () {
         setTimeout(function () { $key.removeClass("pressed"); }, 180);
     }
 
-    // ---- Switch-audio chip (current label + cycle button) -----------------
-    var $chip = $('<div id="source-chip"></div>')
-        .append('<span class="source-name"></span>')
-        .append('<button type="button" class="source-switch">Switch audio</button>')
+    // ---- Settings popup ---------------------------------------------------
+    // Cog wheel in the bottom-right corner opens a modal overlay containing
+    // the audio-source picker (and room for future settings). The overlay's
+    // backdrop and a "×" button both dismiss it.
+    var $cog = $('<button id="settings-cog" type="button" aria-label="Settings">⚙</button>')
         .appendTo("body");
 
-    function renderChip() {
-        $chip.find(".source-name").text(sources[currentIdx].label);
-    }
-    renderChip();
+    var $overlay = $(
+        '<div id="settings-overlay" hidden>' +
+            '<div class="settings-card" role="dialog" aria-label="Settings">' +
+                '<button type="button" class="settings-close" aria-label="Close">×</button>' +
+                '<h2 class="settings-title">Settings</h2>' +
+                '<section class="settings-row">' +
+                    '<div class="settings-row-label">Audio</div>' +
+                    '<div class="settings-row-control">' +
+                        '<span class="source-name"></span>' +
+                        '<button type="button" class="source-switch">Switch audio</button>' +
+                    '</div>' +
+                '</section>' +
+            '</div>' +
+        '</div>'
+    ).appendTo("body");
 
-    $chip.on("pointerdown", ".source-switch", function (e) {
-        // Stop the tap from propagating to the keyboard underneath.
+    function renderSourceName() {
+        $overlay.find(".source-name").text(sources[currentIdx].label);
+    }
+    renderSourceName();
+
+    function openSettings() { $overlay.prop("hidden", false); }
+    function closeSettings() { $overlay.prop("hidden", true); }
+
+    $cog.on("pointerdown", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        openSettings();
+    });
+
+    $overlay.on("pointerdown", ".settings-close", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        closeSettings();
+    });
+
+    // Tapping the dark backdrop (but not the card) also closes the popup.
+    $overlay.on("pointerdown", function (e) {
+        if (e.target === this) {
+            e.preventDefault();
+            closeSettings();
+        }
+    });
+
+    $overlay.on("pointerdown", ".source-switch", function (e) {
         e.preventDefault();
         e.stopPropagation();
         currentIdx = (currentIdx + 1) % sources.length;
         loadSounds();
-        renderChip();
+        renderSourceName();
+    });
+
+    // Escape key also closes the popup (handy for desktop).
+    $(document).on("keydown", function (e) {
+        if (e.key === "Escape" && !$overlay.prop("hidden")) closeSettings();
     });
 
     // ---- Input -----------------------------------------------------------
