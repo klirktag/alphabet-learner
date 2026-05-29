@@ -28,6 +28,32 @@ There are two orthogonal axes:
 
 `SOURCES[LANG]` is an ordered list of `{ id, label }` entries. The chip cycles through them in order; each entry resolves to `sound/<LANG>-<id>/<slug>.webm`. **Adding a new source = drop a folder under `sound/` and append one line to `SOURCES[LANG]`** — that's the whole contract.
 
+## Words (Visa ord feature)
+
+When **Visa ord** is on (Settings cog → toggle, default on), tapping a letter:
+1. Plays the letter sound from the active source.
+2. On the letter audio's `ended` event, picks a **random word** for that letter from `WORDS[LANG][letter]`, shows its image + label, and plays the word audio. Rapid taps cancel any pending word from the previous tap.
+
+`WORDS` is hard-coded in [script.js](script.js) as `{ letter: [{folder, label}, …] }` per language. Files live at `sound/<lang>-<source>/words/<folder>/{audio.webm, image.svg}` — same image bundled in every source folder; audio differs per voice.
+
+Swedish ships with 100 toddler nouns (regenerated via the generator script — see below). `q` and `w` have no entries; everything else has 2–8.
+
+### Regenerating words ([tools/generate_words.py](tools/generate_words.py))
+
+```bash
+python3 tools/generate_words.py
+```
+
+The script is **idempotent**: per word folder, it skips audio that already exists and only fills in missing assets. It does three things per word:
+
+1. Downloads the Twemoji SVG by codepoint (cached at `/tmp/alphabet-emoji-cache/`) and copies it into each source's `words/<folder>/image.svg`. License: **Twemoji is CC-BY 4.0** — keep the attribution line in any distributed app.
+2. Runs Piper for each `sv_SE-*-medium.onnx` voice and espeak (`-v sv+f3`) for `sv-espeak`, encodes each WAV to Opus-in-WebM.
+3. Mirrors the espeak output into `sv-recorded/words/<folder>/` as a placeholder.
+
+To **add a word**: append a tuple to `WORDS` in the generator (`letter, folder_slug, "Label", "text to speak", "twemoji_codepoint_hex"`), run the script, then append a matching entry to `WORDS[LANG][letter]` in [script.js](script.js). Folder slugs follow the same ASCII convention as letter slugs (`å→aa`, `ä→ae`, `ö→oe`, so e.g. *Björn* → `bjoern`, *Ägg* → `aegg`).
+
+If a codepoint isn't in Twemoji (only happens for very new Emoji 15+ glyphs like 🫏 donkey, 🫎 moose), the script logs a warning, leaves the image missing, and the kid sees just the label text. The generator currently substitutes 🐴 for åsna and 🦌 for älg as visually close fallbacks.
+
 ## Audio sources currently shipped
 
 ```
