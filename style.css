@@ -92,3 +92,8 @@ body {
 .key[data-letter="x"] { background: #4dabf7; }
 .key[data-letter="y"] { background: #748ffc; }
 .key[data-letter="z"] { background: #e599f7; }
+
+/* Swedish extras — continue the cycle past Z. */
+.key[data-letter="å"] { background: #ff6b6b; }
+.key[data-letter="ä"] { background: #ffa94d; }
+.key[data-letter="ö"] { background: #ffd43b; color: #4a3a00; text-shadow: 0 0.4vmin 0 rgba(255,255,255,0.4); }
