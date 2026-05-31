@@ -159,6 +159,8 @@ If you change the audio extension, also update `new Audio("…/.webm")` in [scri
 
 ### ElevenLabs ([tools/generate_elevenlabs.py](tools/generate_elevenlabs.py))
 
+> **Status (paused 2026-05-31): the pack is wired up but not yet generated.** `tools/generate_elevenlabs.py`, the `elevenlabs` entry in `SOURCES.sv`, and these docs are all in place, but `audio-packs/sv-elevenlabs/` is empty until the script runs — it needs an ElevenLabs API key the project owner is still setting up. The free tier (10k credits/month) more than covers the full pack (~700 credits); the cheapest paid tier is Starter (~$5/month) for a commercial license without attribution. To resume: get a key, run the command below, then `git add`/commit the new pack (note: `*.webm`/`*.mp3` are gitignored, so the pack stays local unless you force-add it or adjust `.gitignore`).
+
 A cloud-TTS pack generated via the ElevenLabs API. Unlike the local engines it needs an API key and network access at *generation* time (the app itself still runs fully offline from the baked `*.webm`). The script is built to be re-run with a different voice in one line — that's the point of it being a script.
 
 ```bash
