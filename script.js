@@ -1,7 +1,7 @@
 // ----- Configuration ------------------------------------------------------
 // LANG controls which alphabet is displayed (and which family of audio
 // folders is offered in the Settings popup). Each language has one alphabet
-// config in ALPHABETS and one or more "sound/<LANG>-<source>/" folders
+// config in ALPHABETS and one or more "audio-packs/<LANG>-<source>/" folders
 // listed in SOURCES. A real language picker will replace this constant later
 // — the in-app Settings popup already swaps audio sources at runtime.
 var LANG = "sv";
@@ -19,16 +19,18 @@ var ALPHABETS = {
     }
 };
 
-// Audio source folders for each language. Each entry's `id` is the suffix
-// of "sound/<LANG>-<id>/"; `label` is what the Settings popup shows. Add a
-// new recording set by dropping a folder in sound/ and appending a line here.
+// Audio packs for each language. Each entry's `id` is the suffix of the pack
+// folder "audio-packs/<LANG>-<id>/"; `label` is what the Settings popup shows.
+// Add a new audio pack by dropping a folder in audio-packs/ and appending a
+// line here.
 var SOURCES = {
     sv: [
         { id: "piper-nst",  label: "Piper nst" },
         { id: "piper-alma", label: "Piper alma" },
         { id: "piper-lisa", label: "Piper lisa" },
         { id: "espeak",     label: "espeak" },
-        { id: "recorded",   label: "Inspelat" }
+        { id: "recorded",   label: "Inspelat" },
+        { id: "elevenlabs", label: "ElevenLabs" }
     ],
     en: [
         { id: "espeak",     label: "espeak" }
@@ -37,7 +39,7 @@ var SOURCES = {
 
 // Per-letter word associations for the "Visa ord" feature. Each letter maps
 // to an *array* of words; on tap one is picked at random. Each entry's
-// `folder` is a sound/<LANG>-<source>/words/<folder>/ slug; `label` is the
+// `folder` is an audio-packs/<LANG>-<source>/words/<folder>/ slug; `label` is the
 // proper Swedish spelling shown on screen.
 //
 // To add a word: drop folders with audio.webm + image.svg under every
@@ -61,11 +63,13 @@ var WORDS = {
         "n": [{folder:"napp", label:"Napp"}, {folder:"nyckel", label:"Nyckel"}, {folder:"naesa", label:"Näsa"}],
         "o": [{folder:"orm", label:"Orm"}, {folder:"ost", label:"Ost"}, {folder:"oxe", label:"Oxe"}],
         "p": [{folder:"pappa", label:"Pappa"}, {folder:"paeron", label:"Päron"}, {folder:"pingvin", label:"Pingvin"}, {folder:"peng", label:"Peng"}, {folder:"pizza", label:"Pizza"}, {folder:"panda", label:"Panda"}],
+        "q": [{folder:"quiz", label:"Quiz"}],
         "r": [{folder:"ros", label:"Ros"}, {folder:"regn", label:"Regn"}, {folder:"ring", label:"Ring"}, {folder:"raev", label:"Räv"}],
         "s": [{folder:"sol", label:"Sol"}, {folder:"sten", label:"Sten"}, {folder:"saeng", label:"Säng"}, {folder:"sko", label:"Sko"}, {folder:"snoe", label:"Snö"}, {folder:"slott", label:"Slott"}],
         "t": [{folder:"tand", label:"Tand"}, {folder:"taag", label:"Tåg"}, {folder:"tiger", label:"Tiger"}, {folder:"tomte", label:"Tomte"}, {folder:"telefon", label:"Telefon"}, {folder:"traktor", label:"Traktor"}],
         "u": [{folder:"uggla", label:"Uggla"}, {folder:"undulat", label:"Undulat"}],
         "v": [{folder:"vatten", label:"Vatten"}, {folder:"varg", label:"Varg"}, {folder:"vante", label:"Vante"}, {folder:"valp", label:"Valp"}, {folder:"vindruva", label:"Vindruva"}],
+        "w": [{folder:"wok", label:"Wok"}, {folder:"wienerbroed", label:"Wienerbröd"}],
         "x": [{folder:"xylofon", label:"Xylofon"}],
         "y": [{folder:"yxa", label:"Yxa"}, {folder:"yoghurt", label:"Yoghurt"}],
         "z": [{folder:"zebra", label:"Zebra"}],
@@ -124,7 +128,7 @@ $(function () {
 
     function loadSounds() {
         var src = sources[currentIdx];
-        var base = "sound/" + LANG + "-" + src.id + "/";
+        var base = "audio-packs/" + LANG + "-" + src.id + "/";
         sounds = {};
         $kb.find(".key").each(function () {
             var letter = $(this).data("letter");
@@ -180,7 +184,7 @@ $(function () {
         var word = pickWord(letter);
         if (!word) return false;
         var src = sources[currentIdx].id;
-        var base = "sound/" + LANG + "-" + src + "/words/" + word.folder + "/";
+        var base = "audio-packs/" + LANG + "-" + src + "/words/" + word.folder + "/";
 
         $wordImage.attr("src", base + (word.image || "image.svg"));
         $wordLabel.text(word.label || word.folder);

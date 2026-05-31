@@ -32,24 +32,24 @@ done
 
 echo ">> Cleaning $BUILD"
 rm -rf "$BUILD"
-mkdir -p "$BUILD"/{assets/sound,classes,dex,gen}
+mkdir -p "$BUILD"/{assets/audio-packs,classes,dex,gen}
 
-echo ">> Bundling web assets (html/css/js + vendored jQuery + per-source sounds + words)"
+echo ">> Bundling web assets (html/css/js + vendored jQuery + per-pack audio + words)"
 cp "$ROOT/index.html" "$ROOT/style.css" "$ROOT/script.js" "$BUILD/assets/"
 mkdir -p "$BUILD/assets/vendor"
 cp "$ROOT/vendor/"*.js "$BUILD/assets/vendor/"
-# Ship every sound/<lang>-<source>/ folder. Skip wav originals + READMEs.
-for src_dir in "$ROOT/sound/"*/; do
+# Ship every audio-packs/<lang>-<source>/ folder. Skip wav originals + READMEs.
+for src_dir in "$ROOT/audio-packs/"*/; do
     src=$(basename "$src_dir")
-    mkdir -p "$BUILD/assets/sound/$src"
-    cp "$src_dir"*.webm "$BUILD/assets/sound/$src/"
+    mkdir -p "$BUILD/assets/audio-packs/$src"
+    cp "$src_dir"*.webm "$BUILD/assets/audio-packs/$src/"
     # Per-word folders (Visa ord feature): copy audio.webm + image.* per word,
     # skip the originals/ subdir.
     if [ -d "$src_dir/words" ]; then
         for word_dir in "$src_dir/words/"*/; do
             word=$(basename "$word_dir")
-            mkdir -p "$BUILD/assets/sound/$src/words/$word"
-            find "$word_dir" -maxdepth 1 -type f -exec cp {} "$BUILD/assets/sound/$src/words/$word/" \;
+            mkdir -p "$BUILD/assets/audio-packs/$src/words/$word"
+            find "$word_dir" -maxdepth 1 -type f -exec cp {} "$BUILD/assets/audio-packs/$src/words/$word/" \;
         done
     fi
 done

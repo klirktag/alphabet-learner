@@ -8,13 +8,19 @@ A single-page web app that teaches kids the alphabet — built first for the pro
 
 The same web app is also packaged as a native Android APK ([android/](android/)) that bundles every asset and runs offline in a full-screen WebView. The primary deployment target is the kid's tablet — **touch is the main interaction**, not a mouse.
 
+## Terminology: audio packs
+
+An **audio pack** is one self-contained recording set: a folder `audio-packs/<LANG>-<id>/` holding one `*.webm` per letter (plus, optionally, `words/<folder>/{audio.webm, image.svg}` for the Visa ord feature). Each pack is a different voice/engine for the *same* alphabet — e.g. `audio-packs/sv-piper-nst/` and `audio-packs/sv-elevenlabs/` both cover Swedish, in different voices. The user switches between packs at runtime via the Settings popup.
+
+The packs live under the top-level **`audio-packs/`** directory. In [script.js](script.js) a pack is an entry of `SOURCES[LANG]` (the code historically calls them "sources"); its `id` is the `<id>` suffix of the folder name. **Adding an audio pack = drop a folder under `audio-packs/` and append one line to `SOURCES[LANG]`** — that's the whole contract.
+
 ## Product constraints (do not change without asking)
 
 - **Stack: plain HTML, CSS, JavaScript + jQuery only.** No build step for the web side, no bundler, no React/Vue/etc. jQuery is **vendored** at [vendor/jquery-3.7.1.min.js](vendor/jquery-3.7.1.min.js); the page loads it from there. Do not switch back to a CDN — Android WebView pages loaded from `file://` fail to fetch CDN scripts, and the whole app dies silently because every handler lives inside `$(function(){…})`.
 - **Keyboard order is alphabetical**, with rows defined per-language in [script.js](script.js) (Swedish: 7/8/7/7, English: 6/7/7/6). Keep it that way.
 - **Keys fill the viewport.** Sizing uses `vmin` units in [style.css](style.css) so the keyboard scales to phones, tablets, and desktop without scrolling.
 - **Visual style is colorful and child-friendly** (rounded keys, bright per-letter colors, playful font). Per-key colors are assigned via `.key[data-letter="x"]` selectors, cycling through ~9 hues. Å, Ä, Ö continue the cycle.
-- **One sound per letter**, served from [sound/](sound/) as Opus-in-WebM (~4 KB each). Audio objects are pre-created on source-switch so playback is instant.
+- **One sound per letter**, served from [audio-packs/](audio-packs/) as Opus-in-WebM (~4 KB each). Audio objects are pre-created on source-switch so playback is instant.
 - **Touch is the primary input.** Click/mouse and physical-keyboard support are nice extras but the design target is finger taps on a tablet.
 
 ## Language and audio-source configuration
@@ -26,7 +32,7 @@ There are two orthogonal axes:
 
 `ALPHABETS[LANG]` defines the alphabet, row layout, and unicode→ASCII slug mapping for filename-safe lookup (`å→aa`, `ä→ae`, `ö→oe`).
 
-`SOURCES[LANG]` is an ordered list of `{ id, label }` entries. The chip cycles through them in order; each entry resolves to `sound/<LANG>-<id>/<slug>.webm`. **Adding a new source = drop a folder under `sound/` and append one line to `SOURCES[LANG]`** — that's the whole contract.
+`SOURCES[LANG]` is an ordered list of `{ id, label }` entries. The chip cycles through them in order; each entry resolves to `audio-packs/<LANG>-<id>/<slug>.webm`. **Adding a new source = drop a folder under `audio-packs/` and append one line to `SOURCES[LANG]`** — that's the whole contract.
 
 ## Words (Visa ord feature)
 
@@ -34,7 +40,7 @@ When **Visa ord** is on (Settings cog → toggle, default on), tapping a letter:
 1. Plays the letter sound from the active source.
 2. On the letter audio's `ended` event, picks a **random word** for that letter from `WORDS[LANG][letter]`, shows its image + label, and plays the word audio. Rapid taps cancel any pending word from the previous tap.
 
-`WORDS` is hard-coded in [script.js](script.js) as `{ letter: [{folder, label}, …] }` per language. Files live at `sound/<lang>-<source>/words/<folder>/{audio.webm, image.svg}` — same image bundled in every source folder; audio differs per voice.
+`WORDS` is hard-coded in [script.js](script.js) as `{ letter: [{folder, label}, …] }` per language. Files live at `audio-packs/<lang>-<source>/words/<folder>/{audio.webm, image.svg}` — same image bundled in every source folder; audio differs per voice.
 
 Swedish ships with 100 toddler nouns (regenerated via the generator script — see below). `q` and `w` have no entries; everything else has 2–8.
 
@@ -54,29 +60,31 @@ To **add a word**: append a tuple to `WORDS` in the generator (`letter, folder_s
 
 If a codepoint isn't in Twemoji (only happens for very new Emoji 15+ glyphs like 🫏 donkey, 🫎 moose), the script logs a warning, leaves the image missing, and the kid sees just the label text. The generator currently substitutes 🐴 for åsna and 🦌 for älg as visually close fallbacks.
 
-## Audio sources currently shipped
+## Audio packs currently shipped
 
 ```
-sound/
+audio-packs/
 ├── en-espeak/        26 letters · espeak en-us+f3                       (synthetic)
 ├── sv-espeak/        29 letters · espeak sv+f3                          (synthetic)
 ├── sv-piper-nst/     29 letters · Piper, NST corpus, sounds male        (neural)
 ├── sv-piper-alma/    29 letters · Piper, alma voice, female             (neural)
 ├── sv-piper-lisa/    29 letters · Piper, lisa voice, female             (neural)
-└── sv-recorded/      29 letters · placeholder = sv-espeak (overwrite!)  (room for human recordings)
+├── sv-recorded/      29 letters · placeholder = sv-espeak (overwrite!)  (room for human recordings)
+└── sv-elevenlabs/    ElevenLabs cloud TTS, female (multilingual)        (run tools/generate_elevenlabs.py)
 ```
 
-Each `<source>/` folder holds `*.webm` (encoded for app use) plus `originals/*.wav` (lossless source so the WebMs can be re-encoded later).
+Each pack folder holds `*.webm` (encoded for app use) plus `originals/*` — the lossless/source audio so the WebMs can be re-encoded later (`*.wav` for the local engines, `*.mp3` for the ElevenLabs pack).
 
-## Licenses of bundled audio sources
+## Licenses of bundled audio packs
 
-| Source | Engine license | Voice / data license | Redistribute? |
+| Pack | Engine license | Voice / data license | Redistribute? |
 | --- | --- | --- | --- |
 | `*-espeak` | espeak-ng GPL-3 (engine) | n/a — output of a synth not treated as derivative | Yes, freely |
 | `sv-piper-nst` | Piper MIT | NST corpus & model CC0 | Yes, no attribution required (a credit line is polite) |
 | `sv-piper-alma` | Piper MIT | Model **CC BY 4.0** | Yes, **attribution required** in distributed app |
 | `sv-piper-lisa` | Piper MIT | Model license not stated in upstream model card | **Verify before distributing** outside personal use |
 | `sv-recorded` | n/a | Owned by whoever records (initially espeak placeholders) | Owner's call |
+| `sv-elevenlabs` | ElevenLabs proprietary API | Per ElevenLabs ToS — paid tiers grant broad usage incl. commercial; **free tier is non-commercial and requires attribution** | **Check your ElevenLabs plan before distributing** |
 
 Suggested attribution line for an About / credits screen:
 
@@ -103,10 +111,10 @@ LETTERS=(A B C D E F G H I J K L M N O P Q R S T U V W X Y Z Å Ä Ö)
 SLUGS=(a b c d e f g h i j k l m n o p q r s t u v w x y z aa ae oe)
 for i in "${!LETTERS[@]}"; do
     espeak -v sv+f3 -s 130 -p 60 \
-        -w "sound/sv-espeak/originals/${SLUGS[$i]}.wav" "${LETTERS[$i]}"
+        -w "audio-packs/sv-espeak/originals/${SLUGS[$i]}.wav" "${LETTERS[$i]}"
 done
 
-# English (26 letters): swap -v sv+f3 → -v en-us+f3, iterate A–Z, write to sound/en-espeak/originals/.
+# English (26 letters): swap -v sv+f3 → -v en-us+f3, iterate A–Z, write to audio-packs/en-espeak/originals/.
 ```
 
 ### Piper (installed at `~/.local/piper/`)
@@ -134,24 +142,45 @@ PIPER=~/.local/piper/piper/piper
 for i in "${!LETTERS[@]}"; do
     echo "${LETTERS[$i]}" | $PIPER \
         --model "~/.local/piper/sv_SE-nst-medium.onnx" \
-        --output_file "sound/sv-piper-nst/originals/${SLUGS[$i]}.wav"
+        --output_file "audio-packs/sv-piper-nst/originals/${SLUGS[$i]}.wav"
 done
 ```
 
 ### Encoding any WAV to the served WebM
 
 ```bash
-for f in sound/<source>/originals/*.wav; do
-    out="sound/<source>/$(basename "${f%.wav}").webm"
+for f in audio-packs/<source>/originals/*.wav; do
+    out="audio-packs/<source>/$(basename "${f%.wav}").webm"
     ffmpeg -y -i "$f" -c:a libopus -b:a 32k -vbr on -application voip "$out"
 done
 ```
 
 If you change the audio extension, also update `new Audio("…/.webm")` in [script.js](script.js) and the glob in [android/build.sh](android/build.sh).
 
+### ElevenLabs ([tools/generate_elevenlabs.py](tools/generate_elevenlabs.py))
+
+A cloud-TTS pack generated via the ElevenLabs API. Unlike the local engines it needs an API key and network access at *generation* time (the app itself still runs fully offline from the baked `*.webm`). The script is built to be re-run with a different voice in one line — that's the point of it being a script.
+
+```bash
+# Full pack (29 letters + 100 words) into audio-packs/sv-elevenlabs/
+ELEVENLABS_API_KEY=sk_... python3 tools/generate_elevenlabs.py
+
+# Audition another voice into its own pack so you can A/B them in the app:
+ELEVENLABS_API_KEY=sk_... python3 tools/generate_elevenlabs.py \
+    --voice <voice_id> --pack elevenlabs-2
+# then add a matching SOURCES.sv line: { id: "elevenlabs-2", label: "ElevenLabs 2" }
+
+# List the voices on your account (copy a voice_id):
+ELEVENLABS_API_KEY=sk_... python3 tools/generate_elevenlabs.py --list-voices
+```
+
+It reuses the `WORDS` list from `generate_words.py` so the word folders/text stay in sync, requests MP3 (`mp3_44100_128`, free-tier safe) saved under `originals/*.mp3`, and re-encodes to the same Opus-in-WebM as every other pack via ffmpeg. Each word's shared `image.svg` is copied from whichever pack already has it. Idempotent (skips existing `*.webm`; `--force` overwrites).
+
+Defaults: voice **Sarah** (a female multilingual voice — change with `--voice` / `ELEVENLABS_VOICE_ID`) and model **eleven_multilingual_v2** (`--model` / `ELEVENLABS_MODEL`). Letters are spoken as their Swedish letter *names* (`be`, `se`, `de`, …) not the bare glyph, so the multilingual model pronounces them in Swedish.
+
 ### Optional: mbrola as a 4th Swedish source
 
-`/home/ekirprivat/install-tools.sh` queues the system packages (`mbrola mbrola-sw1 mbrola-sw2`) for an mbrola-voiced espeak. Modest quality bump over plain espeak; install with `sudo bash /home/ekirprivat/install-tools.sh`, then regenerate with `espeak -v mb-sw1 …` into a new `sound/sv-espeak-mbrola/` folder and add the matching `SOURCES.sv` entry.
+`/home/ekirprivat/install-tools.sh` queues the system packages (`mbrola mbrola-sw1 mbrola-sw2`) for an mbrola-voiced espeak. Modest quality bump over plain espeak; install with `sudo bash /home/ekirprivat/install-tools.sh`, then regenerate with `espeak -v mb-sw1 …` into a new `audio-packs/sv-espeak-mbrola/` folder and add the matching `SOURCES.sv` entry.
 
 ## Web architecture in one minute
 
@@ -160,7 +189,7 @@ If you change the audio extension, also update `new Audio("…/.webm")` in [scri
   1. Reads `LANG`, looks up `ALPHABETS[LANG]` and `SOURCES[LANG]`.
   2. Reads `localStorage["abc-app:source:" + LANG]` to recall the last source picked.
   3. Builds `.row > .key` markup based on `letters` + `rows`; the `data-letter` attribute is the contract between HTML, CSS (per-key colors), JS (sound lookup), and the filesystem (via `slugs`).
-  4. Inside `loadSounds()`: pre-creates an `Audio` per key pointing at `sound/<LANG>-<source.id>/<slug>.webm` and preloads them. Called again whenever the chip switches source.
+  4. Inside `loadSounds()`: pre-creates an `Audio` per key pointing at `audio-packs/<LANG>-<source.id>/<slug>.webm` and preloads them. Called again whenever the chip switches source.
   5. Renders the floating cog (`#settings-cog`) in the bottom-right corner.
   6. Builds the hidden `#settings-overlay` modal containing the **Settings** card with a `×` close button and the audio-source row (current name + Switch audio button). Cog opens it; `×`, backdrop tap, or Esc closes it.
   7. Wires the keyboard's `pointerdown` and `document.keydown` (physical A–Z + ÅÄÖ) to `playLetter` + `flash`. `audio.currentTime = 0` before `play()` so rapid repeat taps always restart from the beginning.
@@ -168,7 +197,7 @@ If you change the audio extension, also update `new Audio("…/.webm")` in [scri
 
 ## Android app
 
-[android/](android/) wraps the web app in a single-Activity full-screen WebView, packaged as a self-contained APK with all assets (HTML, CSS, JS, vendored jQuery, every `sound/<lang>-<source>/` folder) bundled. No network at runtime. App label is **"ABC app"** ([android/res/values/strings.xml](android/res/values/strings.xml)), package `com.example.alphabetlearner`, landscape-locked via `sensorLandscape`.
+[android/](android/) wraps the web app in a single-Activity full-screen WebView, packaged as a self-contained APK with all assets (HTML, CSS, JS, vendored jQuery, every `audio-packs/<lang>-<source>/` folder) bundled. No network at runtime. App label is **"ABC app"** ([android/res/values/strings.xml](android/res/values/strings.xml)), package `com.example.alphabetlearner`, landscape-locked via `sensorLandscape`.
 
 **Build, install, and launch on a connected device:**
 
@@ -191,7 +220,7 @@ Defaults assume `ANDROID_HOME=/home/ekirprivat/android-sdk`, build-tools 36.0.0,
 - [android/AndroidManifest.xml](android/AndroidManifest.xml) — package `com.example.alphabetlearner`, single launcher Activity, `screenOrientation="sensorLandscape"`, no permissions. `configChanges` covers everything that could otherwise destroy and recreate the WebView (orientation, keyboard, density…).
 - [android/src/com/example/alphabetlearner/MainActivity.java](android/src/com/example/alphabetlearner/MainActivity.java) — creates a WebView, enables JS + DOM storage, calls `setMediaPlaybackRequiresUserGesture(false)` (essential: otherwise the first tap on each letter wouldn't play sound), disables long-press / scroll bounce / zoom, loads `file:///android_asset/index.html`, and re-applies immersive sticky fullscreen on every focus gain.
 - [android/res/](android/res/) — `strings.xml`, `colors.xml`, fullscreen `AppTheme`, and an adaptive launcher icon (white "A" on the app's blue) defined entirely in XML.
-- [android/build.sh](android/build.sh) — pipeline: copy `index.html`/`style.css`/`script.js`/`vendor/*.js` + every `sound/*/*.webm` into `assets/` → `aapt2 compile` → `aapt2 link` → `javac` → `d8` → zip `classes.dex` into the APK → `zipalign` → `apksigner sign`. Output: `android/build/alphabet-learner.apk`.
+- [android/build.sh](android/build.sh) — pipeline: copy `index.html`/`style.css`/`script.js`/`vendor/*.js` + every `audio-packs/*/*.webm` into `assets/` → `aapt2 compile` → `aapt2 link` → `javac` → `d8` → zip `classes.dex` into the APK → `zipalign` → `apksigner sign`. Output: `android/build/alphabet-learner.apk`.
 
 ### Touch handling (the primary input path)
 

@@ -1,21 +1,29 @@
 #!/usr/bin/env python3
 """
 Generate per-source word audio + bundle an emoji image for every entry in
-the toddler-Swedish word list. Idempotent: re-run any time to refresh assets.
+the toddler-Swedish word list.
 
 For each word we:
   1. Look up a Twemoji codepoint, download (and cache) its SVG.
-  2. Run Piper (one ONNX per voice) to synthesise the spoken word, encode to
-     Opus-in-WebM.
+  2. For each Piper voice: try the NST lexicon first (gives correct Swedish
+     pronunciation via direct phoneme synthesis through onnxruntime). If the
+     word is OOV, fall back to running the Piper binary on the spelled text
+     (which uses espeak-ng's G2P).
   3. Run espeak (-v sv+f3) for the sv-espeak source.
   4. Use the espeak output as a placeholder under sv-recorded.
 
-Run:
-    python3 tools/generate_words.py
+Idempotent: skips audio that already exists unless --force is passed.
+
+Run (using the venv that has onnxruntime + numpy):
+    tools/venv/bin/python tools/generate_words.py [--force]
+
+If onnxruntime isn't available, the NST path is skipped silently and every
+Piper voice falls back to espeak G2P.
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import shutil
 import subprocess
@@ -23,6 +31,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "tools"))
+
 PIPER = Path.home() / ".local/piper/piper/piper"
 PIPER_MODELS = {
     "sv-piper-nst":  Path.home() / ".local/piper/sv_SE-nst-medium.onnx",
@@ -34,6 +44,11 @@ RECORDED_SOURCE = "sv-recorded"  # mirrors espeak output as a placeholder
 
 EMOJI_CACHE = Path("/tmp/alphabet-emoji-cache")
 EMOJI_CACHE.mkdir(exist_ok=True)
+
+# NST lexicon (CC0). The extraction location is documented in CLAUDE.md.
+NST_LEXICON = Path(
+    "/tmp/nst-sv/NST svensk leksikon/swe030224NST.pron/swe030224NST.pron"
+)
 
 
 # (letter_slug, word_folder_slug, display_label, text_to_speak, twemoji_codepoint)
@@ -59,8 +74,11 @@ WORDS = [
     # C
     ("c", "cykel", "Cykel", "cykel", "1f6b2"),
     ("c", "citron", "Citron", "citron", "1f34b"),
-    # D
-    ("d", "docka", "Docka", "docka", "1faa9"),
+    # D — docka uses the "Japanese dolls" emoji (Hinamatsuri) because it's
+    # the only Twemoji glyph that shows full-body figures with clothes,
+    # which actually reads as "doll". Unicode's "doll" emoji (1faa9) is a
+    # Russian matryoshka, and the "child" emoji (1f9d2) is face-only.
+    ("d", "docka", "Docka", "docka", "1f38e"),
     ("d", "dator", "Dator", "dator", "1f4bb"),
     ("d", "drake", "Drake", "drake", "1f409"),
     # E
@@ -123,6 +141,11 @@ WORDS = [
     ("p", "peng", "Peng", "peng", "1f4b0"),
     ("p", "pizza", "Pizza", "pizza", "1f355"),
     ("p", "panda", "Panda", "panda", "1f43c"),
+    # Q — virtually nothing common starts with Q in Swedish; "quiz" is a
+    # loanword and isn't in NST, so we respell the text_to_speak as "kviss"
+    # (its actual Swedish pronunciation) so the espeak G2P fallback gets it
+    # right. Display label stays "Quiz".
+    ("q", "quiz", "Quiz", "kviss", "1f9e9"),
     # R
     ("r", "ros", "Ros", "ros", "1f339"),
     ("r", "regn", "Regn", "regn", "1f327"),
@@ -151,6 +174,10 @@ WORDS = [
     ("v", "vante", "Vante", "vante", "1f9e4"),
     ("v", "valp", "Valp", "valp", "1f436"),
     ("v", "vindruva", "Vindruva", "vindruva", "1f347"),
+    # W — almost no native Swedish nouns start with W; both Wienerbröd and
+    # Wok are loanwords that NST does cover (both pronounced /v.../).
+    ("w", "wok", "Wok", "wok", "1f958"),
+    ("w", "wienerbroed", "Wienerbröd", "wienerbröd", "1f950"),
     # X — slim pickings; use the piano emoji as the closest "xylofon" visual.
     ("x", "xylofon", "Xylofon", "xylofon", "1f3b9"),
     # Y
@@ -191,7 +218,8 @@ def download_emoji(codepoint: str) -> Path | None:
     return cache
 
 
-def piper_say(model: Path, text: str, out_wav: Path) -> None:
+def piper_text_say(model: Path, text: str, out_wav: Path) -> None:
+    """Synthesise via the Piper binary (uses espeak-ng for G2P). Fallback path."""
     out_wav.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run(
         [str(PIPER), "--model", str(model), "--output_file", str(out_wav)],
@@ -227,9 +255,38 @@ def encode_webm(in_wav: Path, out_webm: Path) -> None:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--force", action="store_true",
+        help="regenerate audio even if the .webm already exists",
+    )
+    args = parser.parse_args()
+
+    # Try to set up the NST→IPA Piper synthesisers (one per voice). If the
+    # lexicon or onnxruntime isn't available we silently fall back to the
+    # espeak-driven Piper binary for every word.
+    nst_synths: dict[str, "object"] = {}
+    if NST_LEXICON.exists():
+        try:
+            from piper_nst import PiperNST  # type: ignore
+            for source, model in PIPER_MODELS.items():
+                nst_synths[source] = PiperNST(model, NST_LEXICON)
+            print(f"NST pipeline ready ({len(nst_synths)} voices, "
+                  f"{len(next(iter(nst_synths.values())).lexicon)} lex entries)",
+                  file=sys.stderr)
+        except Exception as e:
+            print(f"NST pipeline unavailable ({e!r}); using espeak G2P only",
+                  file=sys.stderr)
+    else:
+        print(f"NST lexicon not found at {NST_LEXICON}; using espeak G2P only",
+              file=sys.stderr)
+
     missing_emojis: list[str] = []
-    generated = 0
+    generated_nst = 0
+    generated_espeak_fallback = 0
+    generated_espeak = 0
     skipped_existing = 0
+    oov_words: list[str] = []
 
     for letter, folder, label, say, cp in WORDS:
         svg = download_emoji(cp)
@@ -240,56 +297,82 @@ def main() -> int:
 
         # Piper voices
         for source, model in PIPER_MODELS.items():
-            word_dir = ROOT / "sound" / source / "words" / folder
+            word_dir = ROOT / "audio-packs" / source / "words" / folder
             wav = word_dir / "originals" / "audio.wav"
             webm = word_dir / "audio.webm"
             img = word_dir / "image.svg"
-            if not webm.exists():
-                piper_say(model, say, wav)
-                encode_webm(wav, webm)
-                generated += 1
-            else:
+
+            if webm.exists() and not args.force:
                 skipped_existing += 1
+            else:
+                used_nst = False
+                synth = nst_synths.get(source)
+                if synth is not None:
+                    wav.parent.mkdir(parents=True, exist_ok=True)
+                    try:
+                        if synth.synth_from_word(say, wav):
+                            used_nst = True
+                    except Exception as e:
+                        print(f"  ! NST synth failed for {say!r} on {source}: {e!r}",
+                              file=sys.stderr)
+                if not used_nst:
+                    piper_text_say(model, say, wav)
+                    if synth is not None and say not in oov_words:
+                        oov_words.append(say)
+                    generated_espeak_fallback += 1
+                else:
+                    generated_nst += 1
+                encode_webm(wav, webm)
+
             if svg and not img.exists():
                 shutil.copy(svg, img)
 
-        # espeak voice
-        word_dir = ROOT / "sound" / ESPEAK_SOURCE / "words" / folder
+        # espeak voice (its own engine; NST pipeline doesn't apply here)
+        word_dir = ROOT / "audio-packs" / ESPEAK_SOURCE / "words" / folder
         wav = word_dir / "originals" / "audio.wav"
         webm = word_dir / "audio.webm"
         img = word_dir / "image.svg"
-        if not webm.exists():
+        if webm.exists() and not args.force:
+            skipped_existing += 1
+        else:
             espeak_say(say, wav)
             encode_webm(wav, webm)
-            generated += 1
-        else:
-            skipped_existing += 1
+            generated_espeak += 1
         if svg and not img.exists():
             shutil.copy(svg, img)
 
         # sv-recorded mirrors espeak so the user can replace one file at a time
-        rec_dir = ROOT / "sound" / RECORDED_SOURCE / "words" / folder
+        rec_dir = ROOT / "audio-packs" / RECORDED_SOURCE / "words" / folder
         rec_wav = rec_dir / "originals" / "audio.wav"
         rec_webm = rec_dir / "audio.webm"
         rec_img = rec_dir / "image.svg"
-        if not rec_webm.exists():
+        if (not rec_webm.exists()) or args.force:
             rec_dir.mkdir(parents=True, exist_ok=True)
             (rec_dir / "originals").mkdir(exist_ok=True)
-            shutil.copy(ROOT / "sound" / ESPEAK_SOURCE / "words" / folder / "originals" / "audio.wav", rec_wav)
-            shutil.copy(ROOT / "sound" / ESPEAK_SOURCE / "words" / folder / "audio.webm", rec_webm)
+            shutil.copy(
+                ROOT / "audio-packs" / ESPEAK_SOURCE / "words" / folder / "originals" / "audio.wav",
+                rec_wav,
+            )
+            shutil.copy(
+                ROOT / "audio-packs" / ESPEAK_SOURCE / "words" / folder / "audio.webm",
+                rec_webm,
+            )
         if svg and not rec_img.exists():
             shutil.copy(svg, rec_img)
 
         print(f"  ok  {letter} {folder}  ({label})")
 
     print(
-        f"\nDone. generated_audio={generated}, skipped_existing={skipped_existing}, "
-        f"missing_emoji_count={len(missing_emojis)}"
+        f"\nDone. nst={generated_nst} espeak_fallback={generated_espeak_fallback} "
+        f"espeak={generated_espeak} skipped={skipped_existing} "
+        f"oov={len(oov_words)} missing_emoji={len(missing_emojis)}"
     )
+    if oov_words:
+        print("OOV words (fell back to espeak G2P):", ", ".join(oov_words))
     if missing_emojis:
         print("Missing emojis:", ", ".join(missing_emojis))
 
-    # Emit a JS WORDS object that can be pasted into script.js.
+    # Emit a JS WORDS object (paste-ready for script.js).
     by_letter: dict[str, list[dict]] = {}
     for letter, folder, label, _say, _cp in WORDS:
         by_letter.setdefault(letter, []).append({"folder": folder, "label": label})
