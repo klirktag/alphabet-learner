@@ -1,0 +1,16 @@
+{
+  "name": "abc-app-desktop",
+  "productName": "ABC App",
+  "version": "1.0.0",
+  "description": "Desktop wrapper for the alphabet-learner keyboard app",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "assets": "bash build-assets.sh",
+    "start": "npm run assets && electron ."
+  },
+  "devDependencies": {
+    "electron": "41.7.1",
+    "electron-builder": "26.15.3"
+  }
+}

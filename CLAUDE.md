@@ -234,6 +234,21 @@ Three layers cooperate to make taps feel instant on the tablet:
 
 **If "touches don't do anything" ever returns, suspect that jQuery didn't load before suspecting touch wiring.** All handlers live inside `$(function(){…})`; a missing `$` makes every key inert with no visual feedback at all — same symptom as a broken touch path.
 
+## Desktop app
+
+[desktop/](desktop/) wraps the same web app (unmodified `index.html`/`style.css`/`script.js`) in Electron, built for the kid's Linux desktop rather than a tablet. Chosen over NW.js/Tauri/pywebview mainly because electron-builder ships a flatpak target that rides on the official `org.electronjs.Electron2.BaseApp` shared runtime — packaging is close to a config block rather than a hand-rolled manifest.
+
+**Exit is deliberately hard for a toddler, easy for an adult**: the window is always fullscreen ([desktop/main.js](desktop/main.js) snaps it back if anything ever knocks it out of fullscreen), there's no menu bar, and quitting — via Alt+F4, the window manager's own close action, or the **Ctrl+Escape** shortcut — always routes through a single "Quit ABC App?" confirm dialog. **Alt+Tab is left completely untouched**, since it's handled by the window manager and Electron never sees it. A few keys a mashing toddler could plausibly hit (reload, devtools, un-fullscreening) are swallowed. `app.disableHardwareAcceleration()` is also called unconditionally — the flatpak sandbox's GPU access proved unreliable across host driver/Mesa combinations during testing (symptom: a blank fullscreen window), and this UI is flat colors and text, so trading hardware acceleration for reliability costs nothing visible.
+
+```bash
+cd desktop
+npm install && npm start        # dev: bundles assets into app/, launches Electron
+./flatpak/build.sh               # -> flatpak/dist/*.flatpak
+./flatpak/install.sh             # flatpak install --user the bundle just built
+```
+
+One-time flatpak prerequisites and full detail (including the `flatpak/electron-builder.yml` finish-args — notably `--socket=session-bus`, without which Electron's D-Bus probe crashes fatally inside the sandbox) are in [desktop/README.md](desktop/README.md); don't duplicate that here.
+
 ## Workflow
 
 Small, focused commits, and serve the directory locally (or rebuild and `adb install` the APK) to verify visually/audibly before reporting work done.

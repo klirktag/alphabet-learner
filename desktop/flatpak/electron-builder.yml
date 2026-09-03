@@ -1,0 +1,30 @@
+# electron-builder config for the flatpak target only. Kept separate from
+# desktop/package.json so everything flatpak-specific lives under
+# desktop/flatpak/. Paths below resolve against desktop/ (the project
+# root electron-builder runs from — see build.sh), not this file's location.
+appId: se.ekirprivat.abcapp
+productName: ABC App
+directories:
+  output: flatpak/dist
+files:
+  - main.js
+  - app/**/*
+icon: icon.png
+linux:
+  target:
+    - flatpak
+  category: Education
+  icon: icon.png
+flatpak:
+  runtimeVersion: "24.08"
+  # electron-builder's "base" (org.electronjs.Electron2.BaseApp) version
+  # defaults to 20.08 independently of runtimeVersion above — pin it to
+  # match, since we only have the 24.08 BaseApp installed.
+  baseVersion: "24.08"
+  finishArgs:
+    - --socket=wayland
+    - --socket=fallback-x11
+    - --share=ipc
+    - --socket=pulseaudio
+    - --socket=session-bus
+    - --device=dri

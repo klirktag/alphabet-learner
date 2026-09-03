@@ -327,11 +327,21 @@ $(function () {
     });
 
     // ---- Input -----------------------------------------------------------
+    // A held finger/mouse button should count as one press, not a stream of
+    // them. setPointerCapture ties pointerup/pointercancel to this element
+    // even if the release happens off it, so "held" can't get stuck true.
     $kb.on("pointerdown", ".key", function (e) {
         e.preventDefault();
-        var letter = $(this).data("letter");
-        playLetter(letter);
-        flash($(this));
+        var $key = $(this);
+        if ($key.data("held")) return;
+        $key.data("held", true);
+        this.setPointerCapture(e.pointerId);
+        playLetter($key.data("letter"));
+        flash($key);
+    });
+
+    $kb.on("pointerup pointercancel", ".key", function () {
+        $(this).data("held", false);
     });
 
     $(document).on("keydown", function (e) {
