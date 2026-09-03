@@ -21,6 +21,8 @@ hard while an adult's exit stays easy:
 - Quitting — via Alt+F4, the window manager's own close action, or the
   **Ctrl+Escape** shortcut — always shows a "Quit ABC App?" confirm dialog.
   There is no single keystroke or click that exits the app.
+- Plain **Escape** (a parent's likely first guess) does nothing to the app
+  itself — it just shows a hint dialog pointing at Ctrl+Escape.
 
 ## Held-key repeat
 

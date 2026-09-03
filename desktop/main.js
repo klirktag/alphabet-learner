@@ -6,9 +6,10 @@
 // menu bar (no stray Ctrl/Cmd+Q accelerator), and quitting always goes
 // through a confirm dialog — whether triggered by Alt+F4, the window
 // manager's own close action, or the Ctrl+Escape shortcut below (Alt+Tab
-// is untouched; it's handled entirely by the window manager). A few keys a
-// mashing toddler could hit by chance (reload, devtools, un-fullscreening)
-// are swallowed.
+// is untouched; it's handled entirely by the window manager). A parent's
+// first instinct — plain Escape — shows a hint pointing at Ctrl+Escape
+// instead of doing nothing. A few keys a mashing toddler could hit by
+// chance (reload, devtools, un-fullscreening) are swallowed.
 const { app, BrowserWindow, Menu, dialog } = require("electron");
 const path = require("path");
 
@@ -84,6 +85,20 @@ function createWindow() {
         // window manager's own close action, not a bypass around it.
         if (mod && key === "escape") {
             win.close();
+            return;
+        }
+
+        // A parent unfamiliar with the app will likely reach for plain
+        // Escape first. Point them at the real shortcut instead of leaving
+        // them stuck.
+        if (key === "escape") {
+            event.preventDefault();
+            dialog.showMessageBoxSync(win, {
+                type: "info",
+                buttons: ["OK"],
+                title: "Exit ABC App",
+                message: "Press Ctrl+Escape to turn off the application",
+            });
             return;
         }
 
